@@ -76,10 +76,18 @@ class PiperModelStore(context: Context) {
         backup.deleteRecursively()
 
         try {
-            downloadWithRetry(voice, archive, onProgress)
-            verifyArchive(voice, archive)
+            if (!archive.exists() || archive.length() == 0L) {
+                downloadWithRetry(voice, archive, onProgress)
+                verifyArchive(voice, archive)
+            } else {
+                try {
+                    verifyArchive(voice, archive)
+                } catch (e: Exception) {
+                    downloadWithRetry(voice, archive, onProgress)
+                    verifyArchive(voice, archive)
+                }
+            }
             extractArchive(voice, archive, staging)
-            archive.delete()
             validateModel(voice, staging)
             File(staging, ".install-complete").writeText("${voice.id}\n")
             if (destination.exists()) check(destination.renameTo(backup)) {
@@ -87,12 +95,12 @@ class PiperModelStore(context: Context) {
             }
             check(staging.renameTo(destination)) { "Could not finalize model installation" }
             backup.deleteRecursively()
+            archive.delete()
             destination
         } catch (error: Exception) {
             staging.deleteRecursively()
             if (!destination.exists() && backup.exists()) backup.renameTo(destination)
-            archive.delete()
-            throw error
+            throw IllegalStateException("${voice.displayName} installation failed: ${error.message}", error)
         } finally {
             staging.deleteRecursively()
             if (destination.exists()) backup.deleteRecursively()
@@ -299,7 +307,11 @@ class PiperModelStore(context: Context) {
                         require(target.mkdirs() || target.isDirectory) { "Could not create model subfolder" }
                     } else {
                         require(entry.isFile) { "Unsupported entry in model archive" }
-                        require(target.parentFile?.mkdirs() != false) { "Could not create model subfolder" }
+                        val parentDir = target.parentFile
+                        if (parentDir != null && !parentDir.exists()) {
+                            require(parentDir.mkdirs()) { "Could not create model subfolder: ${parentDir.absolutePath}" }
+                        }
+                        require(parentDir == null || parentDir.isDirectory) { "Parent is not a directory: ${parentDir?.absolutePath}" }
                         BufferedOutputStream(FileOutputStream(target)).use { output ->
                             while (true) {
                                 val read = tar.read(buffer)
@@ -350,7 +362,9 @@ class PiperModelStore(context: Context) {
         }
         staging.deleteRecursively()
         importStaging.deleteRecursively()
-        archive.delete()
+        if (!destinationIsComplete) {
+            archive.delete()
+        }
     }
 
     private companion object {
