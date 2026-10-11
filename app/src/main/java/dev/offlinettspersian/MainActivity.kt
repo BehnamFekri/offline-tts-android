@@ -166,10 +166,9 @@ class MainActivity : ComponentActivity() {
                             }
                             OutlinedButton(enabled = generated?.isFile == true, onClick = {
                                 playbackSpeed = when (playbackSpeed) {
-                                    0.75f -> 1.0f
-                                    1.0f -> 1.25f
-                                    1.25f -> 1.5f
-                                    else -> 0.75f
+                                    1.0f -> 1.5f
+                                    1.5f -> 2.0f
+                                    else -> 1.0f
                                 }
                                 player?.playbackParameters = PlaybackParameters(playbackSpeed)
                             }) { Text("${playbackSpeed}×") }
