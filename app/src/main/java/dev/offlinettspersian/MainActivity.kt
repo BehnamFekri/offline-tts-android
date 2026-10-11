@@ -39,6 +39,7 @@ import dev.offlinettspersian.tts.DownloadProgress
 import dev.offlinettspersian.tts.PiperModelStore
 import dev.offlinettspersian.tts.SherpaPiperEngine
 import dev.offlinettspersian.tts.PiperVoiceModel
+import dev.offlinettspersian.tts.ModelStatus
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -102,11 +103,11 @@ class MainActivity : ComponentActivity() {
                                 RadioButton(selected = selected?.id == voice.id, onClick = { selectedVoiceId = voice.id })
                                 Column {
                                     Text(voice.displayName)
-                                    Text(if (modelStore.isInstalled(voice)) "Installed" else "Not installed")
+                                    Text(modelStore.getModelStatus(voice).displayText())
                                 }
                             }
                         }
-                        OutlinedButton(enabled = !busy && selected?.let(modelStore::isInstalled) != true && selected != null, onClick = {
+                        OutlinedButton(enabled = !busy && selected != null && modelStore.getModelStatus(selected) !is ModelStatus.Installed, onClick = {
                             val voice = requireNotNull(selected)
                             busy = true
                             downloadProgress = DownloadProgress(0, 0)

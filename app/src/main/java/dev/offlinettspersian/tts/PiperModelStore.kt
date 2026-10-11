@@ -28,13 +28,37 @@ class PiperModelStore(context: Context) {
 
     fun installedDirectory(voice: PiperVoiceModel): File = File(modelsDir, voice.id)
 
-    fun isInstalled(voice: PiperVoiceModel): Boolean {
+    fun getCanonicalStoragePath(): String = modelsDir.absolutePath
+
+    fun getModelStatus(voice: PiperVoiceModel): ModelStatus {
         val dir = installedDirectory(voice)
         val marker = File(dir, ".install-complete")
-        return File(dir, voice.modelFileName).isFile &&
-            File(dir, "tokens.txt").isFile &&
-            File(dir, "espeak-ng-data").isDirectory &&
-            marker.isFile && marker.readText() == "${voice.id}\n"
+        val modelFile = File(dir, voice.modelFileName)
+        val tokensFile = File(dir, "tokens.txt")
+        val dataDir = File(dir, "espeak-ng-data")
+
+        if (!dir.exists()) {
+            return ModelStatus.NotDownloaded
+        }
+
+        val missing = mutableListOf<String>()
+        if (!modelFile.isFile) missing.add(voice.modelFileName)
+        if (!tokensFile.isFile) missing.add("tokens.txt")
+        if (!dataDir.isDirectory) missing.add("espeak-ng-data/")
+
+        if (missing.isNotEmpty()) {
+            return ModelStatus.Incomplete(missing)
+        }
+
+        if (marker.isFile && marker.readText() == "${voice.id}\n") {
+            return ModelStatus.Installed
+        }
+
+        return ModelStatus.Downloaded
+    }
+
+    fun isInstalled(voice: PiperVoiceModel): Boolean {
+        return getModelStatus(voice) == ModelStatus.Installed
     }
 
     suspend fun install(
